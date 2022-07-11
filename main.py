@@ -1,13 +1,9 @@
 # Imports
+from keys import API_KEY, API_SECRET, APCA_API_BASE_URL
 import time
 import alpaca_trade_api as tradeapi
 from termcolor import colored
 import re
-
-# Keys and URLs
-API_KEY = "PKK68N1OBE5I4O7ELRAB"
-API_SECRET = "2v5oKYoxnrwzC2iN2OBh8vUt0ye1l61IDIi4GEBE"
-APCA_API_BASE_URL = "https://paper-api.alpaca.markets"
 
 # Stocks we are using
 STOCK_DATABASE = ["SPY"]
