@@ -37,6 +37,7 @@ print("Today's portfolio balance change: " + str(BALANCE_CHANGE) + "\n")
 # if not is_Open():
 
 # This function scrapes basic financial information about any given ticker from Yahoo Finance
+# and stores it in a dictionary
 
 
 def scrape_indicators(ticker):
