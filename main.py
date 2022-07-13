@@ -39,9 +39,6 @@ print("Today's portfolio balance change: " + str(BALANCE_CHANGE) + "\n")
 """"""
 # if not is_Open():
 
-# This function scrapes basic financial information about any given ticker from Yahoo Finance
-# and stores it in a dictionary
-
 
 #CURRENT_TIME = time.strftime("%H:%M:%S", time.localtime())
 #print("The market isn't open yet. The current time is " + colored(CURRENT_TIME, 'cyan') + ".")

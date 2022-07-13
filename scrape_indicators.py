@@ -3,6 +3,10 @@ import numpy as np
 from bs4 import BeautifulSoup
 import requests
 
+# This function scrapes crucial financial information from Yahoo! Finance and stores it in a dicitonary
+# The function serves no real purpose in Algobot yet, so I figured I'd remove the function until I decide to
+# implement it
+
 
 def scrape_indicators(ticker):
 
