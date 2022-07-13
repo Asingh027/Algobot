@@ -4,6 +4,9 @@ import time
 import alpaca_trade_api as tradeapi
 from termcolor import colored
 import re
+from bs4 import BeautifulSoup
+import requests
+import sys
 
 # Stocks we are using
 STOCK_DATABASE = ["SPY"]
@@ -41,9 +44,6 @@ print("Today's portfolio balance change: " + str(BALANCE_CHANGE) + "\n")
 
 
 def scrape_indicators(ticker):
-    from bs4 import BeautifulSoup
-    import requests
-    import sys
 
     # Obtain HTML for search page
     base_url = "https://finance.yahoo.com/quote/" + ticker + "?p=" + ticker
@@ -81,7 +81,6 @@ print(scrape_indicators('AMZN'))
 # time.sleep(1800)
 #print("Rerunning Algorithm")
 # runfile('Algobot.py')
-
 
 while is_Open():
     for ticker in STOCK_DATABASE:

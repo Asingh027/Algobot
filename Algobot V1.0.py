@@ -4,7 +4,6 @@ import alpaca_trade_api as tradeapi
 from keys import API_KEY, API_SECRET, APCA_API_BASE_URL
 from termcolor import colored
 
-
 # Stocks we are using
 STOCK_DATABASE = ["SPY"]
 
