@@ -31,5 +31,4 @@ This file contains a class indicators which takes in a list of tickers, fetches 
   <li>MACD - Moving Average Convergence Divergence</li>
   <li>RSI - Relative Strength Index</li>
   <li>Bollinger Bands</li>
-  <li>Super Trend</li>
 </ul>
