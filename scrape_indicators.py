@@ -15,8 +15,6 @@ def scrape_indicators(ticker):
     edgar_resp = requests.get(base_url)
     edgar_str = edgar_resp.text
 
-    # Find the document link
-    doc_link = ''
     soup = BeautifulSoup(edgar_str, 'html.parser')
     # Finds the two table objects that contain the indicators we want
     indicators = {}
@@ -38,4 +36,33 @@ def scrape_indicators(ticker):
     return indicators
 
 
-print(scrape_indicators('AMZN'))
+def scrape_weights():
+
+    # Obtain HTML for search page
+    base_url = "https://www.slickcharts.com/sp500"
+    edgar_resp = requests.get(base_url)
+    edgar_str = edgar_resp.text
+
+    # Find the document link
+    soup = BeautifulSoup(edgar_str, 'html-parser')
+    # Finds the two table objects that contain the indicators we want
+    weights = {}
+    table_tag = soup.find_all('table',
+                              {'class': ['table table-hover table-borderless table-sm']})
+    rows = table_tag.find_all('tr')
+    for row in rows:
+        # Finds labels for the data
+        labels = row.find_all('span')
+        # Finds the values for the data
+        values = row.find_all('td')
+        # Adds each value to the dict indicators
+        # labels and values are lists, so we need to get the first item in the list
+        # then get the text for that
+        weights[labels[0].get_text()] = values[0].get_text()
+
+    return weights
+
+
+# print(scrape_indicators('AMZN'))
+
+print(scrape_weights())
