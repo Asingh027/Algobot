@@ -10,7 +10,6 @@ from dateutil.relativedelta import relativedelta
 import requests
 import csv
 
-
 # TRY THIS PACKAGE
 
 # Gather S&P 500 tickers from wikipedia
@@ -34,8 +33,7 @@ for i in stocks:
 
 
 # Our mini stock database and current indicators
-ministonk = ['TSLA', 'AAPL', 'AMZN', 'MSFT',
-             'NIO', 'NVDA', 'MRNA', 'NKLA', 'FB', 'AMD']
+ministonk = ['TSLA', 'AAPL', 'AMZN', 'MSFT', 'FB']
 inds = ["MACD", "RSI", "Bollinger Bands"]
 
 
@@ -86,48 +84,62 @@ class evaluator:
 
         # If slope of the signal line is positive AND the difference between the 2 lines is positive, we BUY
         if diff[-1] > 0 and trend[-1] > 0:
-            return True
+            return 'Buy'
 
         # If slope of the signal line is negative OR the difference between the 2 lines is negative, we SELL
         elif diff[-1] < 0 or trend[-1] < 0:
-            return False
+            return 'Sell'
 
         else:
-            return np.NaN
+            return 'Hold'
 
-    def RSI(self, df):
+    def RSI(self, df, periods=14, low=30, high=70):
         # Calculate the RSI
+        close_delta = df['Close'].diff()
 
-        # Look for crosses
+        # Make two series: one for lower closes and one for higher closes
+        up = close_delta.clip(lower=0)
+        down = -1 * close_delta.clip(upper=0)
 
-        # Recommend accordingly
-        return np.NaN
+        ma_up = up.ewm(com=periods - 1, adjust=True,
+                       min_periods=periods).mean()
+        ma_down = down.ewm(com=periods - 1, adjust=True,
+                           min_periods=periods).mean()
+
+        rsi = ma_up / ma_down
+        rsi = 100 - (100/(1 + rsi))
+
+        if rsi[-1] > high:
+            return 'Buy'
+
+        elif rsi[-1] < low:
+            return 'Sell'
+
+        else:
+            return 'Hold'
 
     def BOL(self, df):
-        # Calculate the Bollinger Bands
 
-        # Look for signals
-
-        # Recommend accordingly
         return np.NaN
 
     def execute(self):
         result_df = pd.DataFrame()
         for ticker in self.tickers:
             df = self.fetch_data(ticker)
-            result_df[ticker] = [self.MACD(df['Close']),
-                                 self.RSI(df), self.BOL(df)]
+            result_df = pd.concat((result_df, pd.Series([self.MACD(df['Close']), self.RSI(
+                df, low=40, high=60), self.BOL(df)])), axis=1)
 
         result_df = result_df.transpose()
         result_df.columns = inds
+        result_df.index = self.tickers
         return result_df
 
 
-t = evaluator(ministonk)
+# print(df)
 
-print(t.execute())
+#df = t.fetch_data('MSFT')
 
-# print(t.fetch_data('GOOGL'))
+# print(t.RSI(df))
 
 # print(ind.get_macd(df['Close']))
 
@@ -148,7 +160,9 @@ def timer():
     start = timeit.default_timer()
 
     # Your statements here
-    print(t.fetch_data('AAPL').head())
+    t = evaluator(stocks)
+
+    print(t.execute())
 
     stop = timeit.default_timer()
 
@@ -158,7 +172,9 @@ def timer():
 
     # Your statements here
 
-    print(AV_fetch_data('AAPL').head())
+    t = evaluator(stocks)
+
+    print(t.execute2())
 
     stop = timeit.default_timer()
 
