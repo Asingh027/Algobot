@@ -1,5 +1,5 @@
 # Imports
-from keys import API_KEY, API_SECRET, APCA_API_BASE_URL
+from keys import *
 import time
 import alpaca_trade_api as tradeapi
 from termcolor import colored
@@ -13,7 +13,6 @@ STOCK_DATABASE = ["SPY"]
 
 # Connects us to APIs
 api = tradeapi.REST(API_KEY, API_SECRET, APCA_API_BASE_URL)
-#AV = api.alpha_vantage
 
 # FUNCTIONS
 """

@@ -1,13 +1,17 @@
 # Imports
+from stock_indicators import indicators as ind
+from keys import *
 import timeit
 import pandas as pd
 import numpy as np
 import yfinance as yf
 from datetime import date
 from dateutil.relativedelta import relativedelta
+import requests
+import csv
+
 
 # TRY THIS PACKAGE
-from stock_indicators import indicators as ind
 
 # Gather S&P 500 tickers from wikipedia
 
@@ -30,7 +34,8 @@ for i in stocks:
 
 
 # Our mini stock database and current indicators
-ministonk = ['AAPL', 'GOOGL', 'MSFT', 'FB', 'TSLA']
+ministonk = ['TSLA', 'AAPL', 'AMZN', 'MSFT',
+             'NIO', 'NVDA', 'MRNA', 'NKLA', 'FB', 'AMD']
 inds = ["MACD", "RSI", "Bollinger Bands"]
 
 
@@ -38,11 +43,29 @@ class evaluator:
     def __init__(self, tickers):
         self.tickers = tickers
 
+    def AV_fetch_data(self, ticker, interval='1min', function='TIME_SERIES_INTRADAY_EXTENDED'):
+        CSV_URL = 'https://www.alphavantage.co/query?function=' + function + \
+            '&symbol=' + ticker + \
+            '&interval=' + interval + \
+            '&apikey=' + AV_KEY + \
+            'datatype=json'
+
+        with requests.Session() as s:
+            download = s.get(CSV_URL)
+            decoded_content = download.content.decode('utf-8')
+            cr = csv.reader(decoded_content.splitlines(), delimiter=',')
+            my_list = list(cr)
+            data = []
+            for row in my_list:
+                data.append(row)
+            data = pd.DataFrame(data[1:], columns=map(str.title, data[0]))
+        return data
+
     def fetch_data(self, ticker):
         global df
         df = yf.Ticker(ticker).history(start=date.today() -
-                                       relativedelta(months=1), end=date.today())
-        return df
+                                       relativedelta(weeks=1), end=date.today())
+        return pd.DataFrame(df)
 
     def MACD(self, price, slow=26, fast=12, smooth=9):
         # Finds the exponential weighted means for the two signal lines
@@ -104,6 +127,8 @@ t = evaluator(ministonk)
 
 print(t.execute())
 
+# print(t.fetch_data('GOOGL'))
+
 # print(ind.get_macd(df['Close']))
 
 #test = yf.Ticker("AAPL")
@@ -123,9 +148,7 @@ def timer():
     start = timeit.default_timer()
 
     # Your statements here
-    t = evaluator(stocks[0:50])
-
-    print(t.execute())
+    print(t.fetch_data('AAPL').head())
 
     stop = timeit.default_timer()
 
@@ -135,9 +158,7 @@ def timer():
 
     # Your statements here
 
-    t = evaluator(stocks[0:50])
-
-    print(t.execute())
+    print(AV_fetch_data('AAPL').head())
 
     stop = timeit.default_timer()
 
