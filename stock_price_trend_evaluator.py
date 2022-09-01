@@ -1,40 +1,18 @@
 # Imports
-from stock_indicators import indicators as ind
 from keys import *
 import timeit
 import pandas as pd
 import numpy as np
 import yfinance as yf
-from datetime import date
+import datetime
 from dateutil.relativedelta import relativedelta
 import requests
 import csv
 
-# TRY THIS PACKAGE
-
-# Gather S&P 500 tickers from wikipedia
-
-
-def get_sp_500_dataset():
-    sp500 = pd.read_html(
-        "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
-    tickers = sp500[0]['Symbol'].values.tolist()
-    return tickers
-
-
-# Gets list of S&P 500 tickers
-stocks = get_sp_500_dataset()
-
-# Gets rid of tickers with periods in it, as this messes up the yfinance API
-# Removes BRK.B and BF.B
-for i in stocks:
-    if "." in i:
-        stocks.remove(i)
-
 
 # Our mini stock database and current indicators
-ministonk = ['TSLA', 'AAPL', 'AMZN', 'MSFT', 'FB']
-inds = ["MACD", "RSI", "Bollinger Bands"]
+ministonk = ['TSLA', 'AAPL', 'AMZN', 'MSFT']
+inds = ["MACD", "RSI"]
 
 
 class evaluator:
@@ -61,8 +39,8 @@ class evaluator:
 
     def fetch_data(self, ticker):
         global df
-        df = yf.Ticker(ticker).history(start=date.today() -
-                                       relativedelta(weeks=1), end=date.today())
+        df = yf.Ticker(ticker).history(start=datetime.date.today() -
+                                       relativedelta(weeks=1), end=datetime.date.today(), interval='1m')
         return pd.DataFrame(df)
 
     def MACD(self, price, slow=26, fast=12, smooth=9):
@@ -81,63 +59,77 @@ class evaluator:
 
         # Adds new column that finds the direction of the difference line.
         diff = np.diff(trend)
+        # print(trend[-1])
+        # print(diff)
 
         # If slope of the signal line is positive AND the difference between the 2 lines is positive, we BUY
-        if diff[-1] > 0 and trend[-1] > 0:
+        if trend[-1] > 0:
             return 'Buy'
 
         # If slope of the signal line is negative OR the difference between the 2 lines is negative, we SELL
-        elif diff[-1] < 0 or trend[-1] < 0:
+        elif trend[-1] < 0:
             return 'Sell'
 
-        else:
-            return 'Hold'
+    def RSI(self, close, periods=14, low=30, high=70):
+        ret = close.diff()
+        up = []
+        down = []
+        for i in range(len(ret)):
+            if ret[i] < 0:
+                up.append(0)
+                down.append(ret[i])
+            else:
+                up.append(ret[i])
+                down.append(0)
+        up_series = pd.Series(up)
+        down_series = pd.Series(down).abs()
+        up_ewm = up_series.ewm(com=periods - 1, adjust=False).mean()
+        down_ewm = down_series.ewm(com=periods - 1, adjust=False).mean()
+        rs = up_ewm/down_ewm
+        rsi = 100 - (100 / (1 + rs))
+        rsi_df = pd.DataFrame(rsi).rename(
+            columns={0: 'RSI'}).set_index(close.index)
+        rsi_df = rsi_df.dropna()
+        final = rsi_df[3:].RSI
+        # print(final[-1])
+        # print(final.index[-1])
 
-    def RSI(self, df, periods=14, low=30, high=70):
-        # Calculate the RSI
-        close_delta = df['Close'].diff()
+        if final[-1] >= high:
+            return 'Sell'
 
-        # Make two series: one for lower closes and one for higher closes
-        up = close_delta.clip(lower=0)
-        down = -1 * close_delta.clip(upper=0)
-
-        ma_up = up.ewm(com=periods - 1, adjust=True,
-                       min_periods=periods).mean()
-        ma_down = down.ewm(com=periods - 1, adjust=True,
-                           min_periods=periods).mean()
-
-        rsi = ma_up / ma_down
-        rsi = 100 - (100/(1 + rsi))
-
-        if rsi[-1] > high:
+        elif final[-1] <= low:
             return 'Buy'
 
-        elif rsi[-1] < low:
-            return 'Sell'
-
         else:
             return 'Hold'
-
-    def BOL(self, df):
-
-        return np.NaN
 
     def execute(self):
         result_df = pd.DataFrame()
         for ticker in self.tickers:
             df = self.fetch_data(ticker)
             result_df = pd.concat((result_df, pd.Series([self.MACD(df['Close']), self.RSI(
-                df, low=40, high=60), self.BOL(df)])), axis=1)
+                df['Close'], low=40, high=60)])), axis=1)
 
         result_df = result_df.transpose()
         result_df.columns = inds
         result_df.index = self.tickers
+        # print(result_df)
         return result_df
 
 
-# print(df)
+#t = evaluator(['AMGN']).fetch_data('AMGN').iloc[-1, 3]
+# print(t)
+#x = t.fetch_data('AMGN')
+#print(x.iloc[-1, 3])
 
-#df = t.fetch_data('MSFT')
+#x = t.fetch_data('AAPL')
+
+# print(x)
+
+
+# print(temp.index)
+
+# print(x)
 
 # print(t.RSI(df))
 
@@ -145,13 +137,13 @@ class evaluator:
 
 #test = yf.Ticker("AAPL")
 
-# print(test.history())
+#print(test.history(interval='1m', start=datetime.date.today() - datetime.timedelta(days=7), end=datetime.date.today()))
 
-#t2 = test.financials
+# t2 = test.financials
 
 # print(t2)
 
-#print(t2.loc["Net Income"])
+# print(t2.loc["Net Income"])
 
 # Use this function to check efficiency of code
 
@@ -172,7 +164,7 @@ def timer():
 
     # Your statements here
 
-    t = evaluator(stocks)
+    t = evaluator(stocks[:50])
 
     print(t.execute2())
 
