@@ -1,15 +1,10 @@
 # Imports
-from queue import Empty
 from keys import *
 import pandas as pd
 import time
 import alpaca_trade_api as tradeapi
 from termcolor import colored
 from stock_price_trend_evaluator import evaluator
-import math
-import re
-from bs4 import BeautifulSoup
-import requests
 import sys
 
 # Gather S&P 100 tickers from wikipedia
@@ -22,8 +17,15 @@ def get_sp_100_dataset():
     return tickers
 
 
+def get_sp_500_dataset():
+    sp500 = pd.read_html(
+        "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
+    tickers = sp500[0]['Symbol'].values.tolist()
+    return tickers
+
+
 # Gets list of S&P 500 tickers
-stocks = get_sp_100_dataset()
+stocks = get_sp_500_dataset()
 
 # Gets rid of tickers with periods in it, as this messes up the yfinance API
 # Removes BRK.B and BF.B
@@ -35,21 +37,35 @@ for i in stocks:
 def sell(ticker):
     t = evaluator([ticker])
     x = t.execute()
-    temp = x[(x.MACD == 'Sell') & (x.RSI == 'Sell')]
-    if temp.empty:
-        return False
-    else:
-        return True
+    for i in x.T:
+        if sum((x.loc[[i]] == 'Sell').values.flatten().tolist()) >= 2:
+            return True
+        else:
+            return False
+    #temp = x[(x.MACD == 'Sell') & (x.RSI == 'Sell')]
+    # if temp.empty:
+    #    return False
+    # else:
+    #    return True
 
 
 def buy(ticker):
     t = evaluator([ticker])
     x = t.execute()
-    temp = x[(x.MACD == 'Buy') & (x.RSI == 'Buy')]
-    if temp.empty:
-        return False
-    else:
+    if sum((x.loc[[i]] == 'Buy').values.flatten().tolist()) >= 2:
         return True
+    else:
+        return False
+    #temp = x[(x.MACD == 'Buy') & (x.RSI == 'Buy')]
+    # if temp.empty:
+    #    return False
+    # else:
+    #    return True
+
+
+def is_Open():
+    time.sleep(0.5)
+    return api.get_clock().is_open
 
 
 # Connects us to APIs
@@ -71,67 +87,56 @@ else:
     print("Today's portfolio balance change: " +
           colored(str(BALANCE_CHANGE), 'cyan') + "\n")
 
+# Check current positions
+ORDERS = api.list_positions()
+# If I'm holding a stock, check for sell
+if ORDERS != []:
+    for i in ORDERS:
+        # If both sell conditions are true, we close the position
+        if sell(i.symbol) == True:
+            api.submit_order(i.symbol, qty=i.qty,
+                             side='sell', type='market')
+            print(colored('Confirmed! ', 'yellow') + "You've successfully " +
+                  colored("sold ", 'red') + "all shares of " + str(i.symbol) + "!")
+            if i.symbol not in stocks:
+                stocks.append(i.symbol)
 
-def is_Open():
-    time.sleep(0.5)
-    return api.get_clock().is_open
+# Evaluate stocks for the day
+t = evaluator(stocks)
+x = t.execute()
+temp = pd.DataFrame()
+for i in x.T:
+    if sum((x.loc[[i]] == 'Buy').values.flatten().tolist()) >= 2:
+        temp = pd.concat((temp, pd.Series([x.loc[[i]]])), axis=1)
+        #temp = x[(x.MACD == 'Buy') | (x.RSI == 'Buy') | (x.BolBands == 'Buy')]
+print(temp)
+final = list(temp.index)
 
+if final == []:
+    print("There are no buy signals currently.")
 
-# While market hours
-while is_Open():
-    # Check current positions
-    ORDERS = api.list_positions()
-    # If no positions, continue
-    if ORDERS == []:
-        continue
-    else:
-        # For each position I'm in
-        for i in ORDERS:
-            # If both sell conditions are true, we close the position
-            if sell(i.symbol) == True:
-                api.submit_order(i.symbol, side='sell', type='market')
-                print(colored('Confirmed! ', 'yellow') + "You've successfully " +
-                      colored("sold ", 'red') + "all shares of " + str(i.symbol) + "!")
-                if i.symbol not in stocks:
-                    stocks.append(i.symbol)
+# Buy all stocks given using 50% of buying power
+# Get buying power for this trade
+temp_buy = float(ACCOUNT.buying_power) * 0.75
 
-    # Evaluate stocks for the day
-    t = evaluator(stocks)
-    x = t.execute()
-    temp = x[(x.MACD == 'Buy') & (x.RSI == 'Buy')]
-    final = list(temp.index)
+# For each stock we're gonna buy
+for i in final:
+    # get number of shares
+    q = (temp_buy/len(final))/(evaluator(
+        [i]).fetch_data(i).iloc[-1, 3])
 
-    # Buy all stocks given using 50% of buying power
+    # Submit market order for shares of stock
+    api.submit_order(symbol=i, qty=q, side='buy', type='market')
 
-    # Get buying power for this trade
-    temp_buy = float(ACCOUNT.buying_power)/2.0
+    # Pring confirmation message
+    print(colored('Confirmed! ', 'yellow') + "You've successfully " +
+          colored("bought ", 'green') + str(q) + " shares of " + str(i) + "! I'm now removing it from stocks so we can't buy it again today. ")
 
-    # For each stock we're gonna buy
-    for i in final:
-        # get number of shares
-        q = (temp_buy/len(final))/(evaluator(
-            [i]).fetch_data(i).iloc[-1, 3])
+    # We're removing this stock from the stocks list so that we can't keep buying it every 60 seconds
+    # Once we sell this position, it'll get re-added.
+    stocks.remove(i)
 
-        # Submit market order for shares of stock
-        api.submit_order(symbol=i, qty=q, side='buy', type='market')
-
-        # Pring confirmation message
-        print(colored('Confirmed! ', 'yellow') + "You've successfully " +
-              colored("bought ", 'green') + str(q) + " shares of " + str(i) + "! I'm now removing it from stocks so we can't buy it again today. ")
-
-        # We're removing this stock from the stocks list so that we can't keep buying it every 60 seconds
-        # Once we sell this position, it'll get re-added.
-        stocks.remove(i)
-
-    else:
-        print("No change in evaluation!")
-
-    # wait 60 seconds
-    print("\nWaiting 60 seconds")
-    for timer in range(15, 60, 15):
-        time.sleep(15)
-        print(str(60 - timer) + " seconds left.")
-
+exit()
 # While not market hours
 if not is_Open():
     stocks = get_sp_100_dataset()

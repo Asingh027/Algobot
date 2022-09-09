@@ -10,9 +10,22 @@ import requests
 import csv
 
 
+def get_sp_100_dataset():
+    sp100 = pd.read_html(
+        "https://en.wikipedia.org/wiki/S%26P_100#Components")
+    tickers = sp100[2]['Symbol'].values.tolist()
+    return tickers
+
+
 # Our mini stock database and current indicators
 ministonk = ['TSLA', 'AAPL', 'AMZN', 'MSFT']
-inds = ["MACD", "RSI"]
+inds = ["MACD", "RSI", "BolBands"]
+
+stocks = get_sp_100_dataset()
+
+for i in stocks:
+    if "." in i:
+        stocks.remove(i)
 
 
 class evaluator:
@@ -40,7 +53,7 @@ class evaluator:
     def fetch_data(self, ticker):
         global df
         df = yf.Ticker(ticker).history(start=datetime.date.today() -
-                                       relativedelta(weeks=1), end=datetime.date.today(), interval='1m')
+                                       relativedelta(months=3), end=datetime.date.today())
         return pd.DataFrame(df)
 
     def MACD(self, price, slow=26, fast=12, smooth=9):
@@ -59,7 +72,7 @@ class evaluator:
 
         # Adds new column that finds the direction of the difference line.
         diff = np.diff(trend)
-        # print(trend[-1])
+        print(trend[-1])
         # print(diff)
 
         # If slope of the signal line is positive AND the difference between the 2 lines is positive, we BUY
@@ -91,15 +104,27 @@ class evaluator:
             columns={0: 'RSI'}).set_index(close.index)
         rsi_df = rsi_df.dropna()
         final = rsi_df[3:].RSI
-        # print(final[-1])
+        print(final[-1])
         # print(final.index[-1])
 
-        if final[-1] >= high:
-            return 'Sell'
-
-        elif final[-1] <= low:
+        if final[-1] <= low:
             return 'Buy'
 
+        elif final[-1] >= high:
+            return 'Sell'
+
+        else:
+            return 'Hold'
+
+    def Bollinger(self, prices, rate=20):
+        sma = prices.rolling(rate).mean()
+        std = prices.rolling(rate).std()
+        up = sma + std * 2  # Calculate top band
+        down = sma - std * 2  # Calculate bottom band
+        if prices[-1] < down[-1]:
+            return 'Buy'
+        elif prices[-1] > up[-1]:
+            return 'Sell'
         else:
             return 'Hold'
 
@@ -107,9 +132,10 @@ class evaluator:
         result_df = pd.DataFrame()
         for ticker in self.tickers:
             df = self.fetch_data(ticker)
+            print(ticker)
             result_df = pd.concat((result_df, pd.Series([self.MACD(df['Close']), self.RSI(
-                df['Close'], low=40, high=60)])), axis=1)
-
+                df['Close'], low=30, high=70), self.Bollinger(df['Close'])])), axis=1)
+            print('------------------------')
         result_df = result_df.transpose()
         result_df.columns = inds
         result_df.index = self.tickers
@@ -117,12 +143,36 @@ class evaluator:
         return result_df
 
 
-#t = evaluator(['AMGN']).fetch_data('AMGN').iloc[-1, 3]
-# print(t)
-#x = t.fetch_data('AMGN')
-#print(x.iloc[-1, 3])
+ministonk = ['TSLA', 'AAPL', 'AMZN', 'MSFT', 'T']
 
-#x = t.fetch_data('AAPL')
+t = evaluator(stocks)
+x = t.execute()
+print(x)
+temp = pd.DataFrame()
+for i in x.T:
+    if sum((x.loc[[i]] == 'Buy').values.flatten().tolist()) >= 2:
+        temp = pd.concat((temp, pd.Series([x.loc[[i]]])), axis=1)
+        #temp = x[(x.MACD == 'Buy') | (x.RSI == 'Buy') | (x.BolBands == 'Buy')]
+print(temp)
+final = list(temp.index)
+# MAJORITY
+
+# for i in ministonk:
+#    if sum((x.loc[[i]] == 'Buy').values.flatten().tolist()) >= 2:
+#        print(True)
+#    else:
+#        print(False)
+
+#    if ((x.loc[[i]] == 'Buy').sum(axis=1) >= 2):
+#        print(i)
+
+
+# t = evaluator(['AMGN']).fetch_data('AMGN').iloc[-1, 3]
+# print(t)
+# x = t.fetch_data('AMGN')
+# print(x.iloc[-1, 3])
+
+# x = t.fetch_data('AAPL')
 
 # print(x)
 
@@ -135,9 +185,9 @@ class evaluator:
 
 # print(ind.get_macd(df['Close']))
 
-#test = yf.Ticker("AAPL")
+# test = yf.Ticker("AAPL")
 
-#print(test.history(interval='1m', start=datetime.date.today() - datetime.timedelta(days=7), end=datetime.date.today()))
+# print(test.history(interval='1m', start=datetime.date.today() - datetime.timedelta(days=7), end=datetime.date.today()))
 
 # t2 = test.financials
 
